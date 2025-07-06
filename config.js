@@ -9,7 +9,7 @@ const API_CONFIG = {
     // 🔧 部署Worker后，请将下面的URL替换为您的实际Worker地址
     // 格式：https://your-worker-name.your-subdomain.workers.dev
     production: {
-        baseUrl: 'https://navigation-worker.your-subdomain.workers.dev'
+        baseUrl: 'https://plain-poetry-74c9.15697737787.workers.dev'
     }
 };
 
