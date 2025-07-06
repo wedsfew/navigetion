@@ -181,8 +181,9 @@ body {
 
 .filter-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .filter-btn {
@@ -869,9 +870,140 @@ form {
     font-style: italic;
 }
 
-.filter-buttons {
+/* 加载状态样式 */
+.loading-state {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 30px 40px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
     display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 16px;
+    color: #4a5568;
+    backdrop-filter: blur(5px);
+}
+
+.loading-state i {
+    font-size: 20px;
+    color: #667eea;
+}
+
+/* 网络状态指示器 */
+.network-status {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    z-index: 1500;
+    display: none;
+    align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.network-status.online {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.network-status.offline {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.network-status.slow {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+/* 消息提示增强样式 */
+.message {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.message div {
+    margin: 2px 0;
+}
+
+.message i {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* 重试按钮样式 */
+.retry-button {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-top: 10px;
+    transition: all 0.3s ease;
+}
+
+.retry-button:hover {
+    background: #5a67d8;
+    transform: translateY(-1px);
+}
+
+/* 缓存状态提示 */
+.cache-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    color: #e65100;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* 空状态增强 */
+.empty-state.network-error {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    color: #c53030;
+}
+
+.empty-state.network-error i {
+    color: #e53e3e;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .loading-state {
+        width: 90%;
+        padding: 20px;
+        font-size: 14px;
+    }
+    
+    .network-status {
+        bottom: 10px;
+        left: 10px;
+        font-size: 11px;
+        padding: 8px 12px;
+    }
+    
+    .message {
+        max-width: 90%;
+        right: 5%;
+        font-size: 13px;
+    }
 } 

@@ -21,6 +21,9 @@ class ProjectManager {
     }
 
     async init() {
+        // 初始化网络状态监测
+        this.initNetworkMonitoring();
+        
         await this.loadAdminToken();
         await this.loadCategories();
         await this.loadProjects();
@@ -29,14 +32,16 @@ class ProjectManager {
         this.updateUIForAdminStatus();
     }
 
-    // API调用函数
-    async apiCall(endpoint, options = {}) {
+    // API调用函数 - 增强版，支持重试和超时处理
+    async apiCall(endpoint, options = {}, retryCount = 3) {
         const url = `${this.apiBaseUrl}${endpoint}`;
         const defaultOptions = {
             headers: {
                 'Content-Type': 'application/json',
                 ...options.headers
-            }
+            },
+            timeout: 15000, // 15秒超时
+            ...options
         };
 
         // 如果有token，添加到请求头
@@ -44,17 +49,51 @@ class ProjectManager {
             defaultOptions.headers['Authorization'] = `Bearer ${this.adminToken}`;
         }
 
-        const response = await fetch(url, {
-            ...defaultOptions,
-            ...options
-        });
+        for (let attempt = 1; attempt <= retryCount; attempt++) {
+            try {
+                console.log(`API调用尝试 ${attempt}/${retryCount}: ${endpoint}`);
+                
+                // 创建超时控制器
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), defaultOptions.timeout);
+                
+                const response = await fetch(url, {
+                    ...defaultOptions,
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ error: '网络错误' }));
-            throw new Error(error.error || '请求失败');
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ 
+                        error: `HTTP ${response.status}: ${response.statusText}` 
+                    }));
+                    throw new Error(error.error || `请求失败 (${response.status})`);
+                }
+
+                console.log(`API调用成功: ${endpoint}`);
+                return await response.json();
+                
+            } catch (error) {
+                console.error(`API调用失败 (尝试 ${attempt}/${retryCount}):`, error);
+                
+                if (attempt === retryCount) {
+                    // 最后一次尝试失败，抛出详细错误
+                    if (error.name === 'AbortError') {
+                        throw new Error('网络连接超时，请检查网络状况或稍后重试');
+                    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                        throw new Error('网络连接失败，请检查网络状况。如果在中国大陆访问，可能是网络限制导致的，建议使用VPN或稍后重试');
+                    } else {
+                        throw new Error(error.message || '服务器连接失败，请稍后重试');
+                    }
+                }
+                
+                // 等待一段时间再重试，避免频繁请求
+                const delay = attempt * 1000; // 1秒, 2秒, 3秒...
+                console.log(`等待 ${delay}ms 后重试...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
         }
-
-        return await response.json();
     }
 
     // 加载管理员token
@@ -107,13 +146,31 @@ class ProjectManager {
 
     // 加载项目列表
     async loadProjects() {
+        // 显示加载状态
+        this.showLoadingState('正在加载项目...');
+        
         try {
             const response = await this.apiCall('/api/projects');
             this.projects = response.projects || [];
             this.renderProjects();
+            this.hideLoadingState();
+            
+            // 缓存项目数据
+            this.saveProjectsCache(this.projects);
+            
+            // 如果项目为空，可能是首次访问
+            if (this.projects.length === 0) {
+                this.showMessage('暂无项目，请添加您的第一个项目', 'info');
+            }
         } catch (error) {
             console.error('加载项目失败:', error);
-            this.showMessage('加载项目失败: ' + error.message, 'error');
+            this.hideLoadingState();
+            
+            // 显示更友好的错误信息和重试按钮
+            this.showNetworkErrorMessage(error.message);
+            
+            // 尝试从缓存加载项目
+            this.loadProjectsFromCache();
         }
     }
 
@@ -124,9 +181,262 @@ class ProjectManager {
             this.categories = response.categories || [];
             this.renderCategories();
             this.updateCategorySelect();
+            
+            // 缓存分类数据
+            this.saveCategoriesCache(this.categories);
         } catch (error) {
             console.error('加载分类失败:', error);
             this.showMessage('加载分类失败: ' + error.message, 'error');
+            
+            // 尝试从缓存加载分类
+            this.loadCategoriesFromCache();
+        }
+    }
+
+    // 从缓存加载项目
+    loadProjectsFromCache() {
+        try {
+            const cachedProjects = localStorage.getItem('projects_cache');
+            if (cachedProjects) {
+                this.projects = JSON.parse(cachedProjects);
+                this.renderProjects();
+                this.showMessage('已从缓存加载项目数据，部分数据可能不是最新的', 'info');
+            }
+        } catch (error) {
+            console.error('从缓存加载项目失败:', error);
+        }
+    }
+
+    // 保存项目到缓存
+    saveProjectsCache(projects) {
+        try {
+            localStorage.setItem('projects_cache', JSON.stringify(projects));
+            localStorage.setItem('projects_cache_time', Date.now().toString());
+        } catch (error) {
+            console.error('保存项目缓存失败:', error);
+        }
+    }
+
+    // 从缓存加载分类
+    loadCategoriesFromCache() {
+        try {
+            const cachedCategories = localStorage.getItem('categories_cache');
+            if (cachedCategories) {
+                this.categories = JSON.parse(cachedCategories);
+                this.renderCategories();
+                this.updateCategorySelect();
+                this.showMessage('已从缓存加载分类数据', 'info');
+            }
+        } catch (error) {
+            console.error('从缓存加载分类失败:', error);
+        }
+    }
+
+    // 保存分类到缓存
+    saveCategoriesCache(categories) {
+        try {
+            localStorage.setItem('categories_cache', JSON.stringify(categories));
+        } catch (error) {
+            console.error('保存分类缓存失败:', error);
+        }
+    }
+
+    // 显示加载状态
+    showLoadingState(message = '加载中...') {
+        const loadingElement = document.getElementById('loadingState');
+        if (loadingElement) {
+            loadingElement.textContent = message;
+            loadingElement.style.display = 'block';
+        } else {
+            // 创建加载状态元素
+            const loading = document.createElement('div');
+            loading.id = 'loadingState';
+            loading.className = 'loading-state';
+            loading.innerHTML = `
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>${message}</span>
+            `;
+            document.querySelector('.container').appendChild(loading);
+        }
+    }
+
+    // 隐藏加载状态
+    hideLoadingState() {
+        const loadingElement = document.getElementById('loadingState');
+        if (loadingElement) {
+            loadingElement.style.display = 'none';
+        }
+    }
+
+    // 初始化网络监测
+    initNetworkMonitoring() {
+        // 检测网络连接状态
+        this.updateNetworkStatus();
+        
+        // 监听网络状态变化
+        window.addEventListener('online', () => {
+            this.updateNetworkStatus();
+            this.showMessage('网络连接已恢复', 'success');
+            // 网络恢复后重新加载数据
+            this.loadProjects();
+            this.loadCategories();
+        });
+        
+        window.addEventListener('offline', () => {
+            this.updateNetworkStatus();
+            this.showMessage('网络连接已断开，将使用缓存数据', 'warning');
+        });
+        
+        // 定期检测网络质量
+        setInterval(() => {
+            this.checkNetworkQuality();
+        }, 30000); // 30秒检查一次
+    }
+
+    // 更新网络状态显示
+    updateNetworkStatus() {
+        const networkStatus = document.getElementById('networkStatus');
+        const networkStatusText = document.getElementById('networkStatusText');
+        const statusIcon = networkStatus.querySelector('i');
+        
+        if (!networkStatus) return;
+        
+        if (navigator.onLine) {
+            networkStatus.className = 'network-status online';
+            statusIcon.className = 'fas fa-wifi';
+            networkStatusText.textContent = '网络连接正常';
+            
+            // 3秒后隐藏正常状态
+            setTimeout(() => {
+                if (networkStatus.classList.contains('online')) {
+                    networkStatus.style.display = 'none';
+                }
+            }, 3000);
+        } else {
+            networkStatus.className = 'network-status offline';
+            statusIcon.className = 'fas fa-wifi-slash';
+            networkStatusText.textContent = '网络已断开';
+            networkStatus.style.display = 'flex';
+        }
+    }
+
+    // 检测网络质量
+    async checkNetworkQuality() {
+        if (!navigator.onLine) return;
+        
+        const networkStatus = document.getElementById('networkStatus');
+        const networkStatusText = document.getElementById('networkStatusText');
+        const statusIcon = networkStatus.querySelector('i');
+        
+        if (!networkStatus) return;
+        
+        try {
+            const startTime = Date.now();
+            const response = await fetch(this.apiBaseUrl + '/api/projects', {
+                method: 'HEAD',
+                cache: 'no-cache',
+                signal: AbortSignal.timeout(5000) // 5秒超时
+            });
+            const endTime = Date.now();
+            const responseTime = endTime - startTime;
+            
+            if (response.ok) {
+                if (responseTime > 3000) {
+                    // 网络较慢
+                    networkStatus.className = 'network-status slow';
+                    statusIcon.className = 'fas fa-exclamation-triangle';
+                    networkStatusText.textContent = '网络较慢，建议检查网络或使用VPN';
+                    networkStatus.style.display = 'flex';
+                    
+                    // 10秒后隐藏
+                    setTimeout(() => {
+                        if (networkStatus.classList.contains('slow')) {
+                            networkStatus.style.display = 'none';
+                        }
+                    }, 10000);
+                } else {
+                    // 网络正常，隐藏状态
+                    networkStatus.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            // 连接失败
+            networkStatus.className = 'network-status offline';
+            statusIcon.className = 'fas fa-exclamation-circle';
+            networkStatusText.textContent = '服务器连接失败，可能是网络限制';
+            networkStatus.style.display = 'flex';
+                 }
+     }
+
+    // 显示网络错误消息和重试选项
+    showNetworkErrorMessage(originalError) {
+        // 创建自定义错误消息
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'network-error-message';
+        errorContainer.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 1px solid #fed7d7;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            max-width: 400px;
+            text-align: center;
+        `;
+
+        errorContainer.innerHTML = `
+            <div style="color: #e53e3e; margin-bottom: 15px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 32px;"></i>
+            </div>
+            <h3 style="color: #2d3748; margin-bottom: 10px;">网络连接问题</h3>
+            <p style="color: #4a5568; margin-bottom: 20px; line-height: 1.5;">
+                ${originalError}
+            </p>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <h4 style="color: #856404; margin-bottom: 10px;">💡 解决方案</h4>
+                <ul style="color: #856404; text-align: left; margin: 0; padding-left: 20px;">
+                    <li>检查网络连接状况</li>
+                    <li>如果在中国大陆，建议使用VPN</li>
+                    <li>稍后重试或刷新页面</li>
+                </ul>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button class="retry-button" onclick="projectManager.retryLoadData()">
+                    <i class="fas fa-redo"></i> 重试
+                </button>
+                <button class="retry-button" onclick="projectManager.closeErrorMessage()" style="background: #6c757d;">
+                    关闭
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(errorContainer);
+        this.currentErrorMessage = errorContainer;
+    }
+
+    // 重试加载数据
+    async retryLoadData() {
+        this.closeErrorMessage();
+        this.showMessage('正在重新加载...', 'info');
+        
+        try {
+            await this.loadProjects();
+            await this.loadCategories();
+            this.showMessage('数据加载成功！', 'success');
+        } catch (error) {
+            this.showMessage('重试失败，请检查网络后再试', 'error');
+        }
+    }
+
+    // 关闭错误消息
+    closeErrorMessage() {
+        if (this.currentErrorMessage) {
+            this.currentErrorMessage.remove();
+            this.currentErrorMessage = null;
         }
     }
 
@@ -685,14 +995,47 @@ class ProjectManager {
     }
 
     // 显示消息
-    showMessage(message, type = 'success') {
+    showMessage(message, type = 'success', duration = 3000) {
         // 创建消息提示
         const messageEl = document.createElement('div');
-        messageEl.className = 'message';
-        messageEl.textContent = message;
+        messageEl.className = `message message-${type}`;
         
-        const bgColor = type === 'error' ? '#f44336' : '#48bb78';
-        const shadowColor = type === 'error' ? 'rgba(244, 67, 54, 0.4)' : 'rgba(72, 187, 120, 0.4)';
+        // 处理多行消息
+        if (message.includes('\n')) {
+            messageEl.innerHTML = message.split('\n').map(line => `<div>${this.escapeHtml(line)}</div>`).join('');
+        } else {
+            messageEl.textContent = message;
+        }
+        
+        // 根据类型设置样式
+        let bgColor, shadowColor, icon;
+        switch (type) {
+            case 'error':
+                bgColor = '#f44336';
+                shadowColor = 'rgba(244, 67, 54, 0.4)';
+                icon = 'fas fa-exclamation-circle';
+                break;
+            case 'info':
+                bgColor = '#2196f3';
+                shadowColor = 'rgba(33, 150, 243, 0.4)';
+                icon = 'fas fa-info-circle';
+                break;
+            case 'warning':
+                bgColor = '#ff9800';
+                shadowColor = 'rgba(255, 152, 0, 0.4)';
+                icon = 'fas fa-exclamation-triangle';
+                break;
+            default: // success
+                bgColor = '#48bb78';
+                shadowColor = 'rgba(72, 187, 120, 0.4)';
+                icon = 'fas fa-check-circle';
+        }
+        
+        // 添加图标
+        const iconEl = document.createElement('i');
+        iconEl.className = icon;
+        iconEl.style.marginRight = '8px';
+        messageEl.insertBefore(iconEl, messageEl.firstChild);
         
         messageEl.style.cssText = `
             position: fixed;
@@ -705,13 +1048,17 @@ class ProjectManager {
             box-shadow: 0 4px 20px ${shadowColor};
             z-index: 2000;
             animation: slideInRight 0.3s ease;
-            max-width: 300px;
+            max-width: 350px;
             word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
         `;
 
         document.body.appendChild(messageEl);
 
-        // 3秒后自动移除
+        // 自动移除
         setTimeout(() => {
             messageEl.style.animation = 'slideOutRight 0.3s ease';
             setTimeout(() => {
@@ -719,7 +1066,7 @@ class ProjectManager {
                     messageEl.parentNode.removeChild(messageEl);
                 }
             }, 300);
-        }, 3000);
+        }, duration);
     }
 
     // 编辑项目
