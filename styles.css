@@ -36,6 +36,70 @@ body {
     align-items: center;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.admin-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 12px;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.admin-name {
+    color: #4caf50;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.logout-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: #d32f2f;
+    transform: translateY(-1px);
+}
+
+.login-btn {
+    background: #2196f3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+.login-btn:hover {
+    background: #1976d2;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
+}
+
 .header h1 {
     font-size: 2rem;
     font-weight: 700;
@@ -485,6 +549,58 @@ form {
     box-shadow: 0 6px 20px rgba(229, 62, 62, 0.6);
 }
 
+/* 登录相关样式 */
+.setup-password-hint {
+    padding: 20px 30px;
+    border-top: 1px solid #e2e8f0;
+    background: #f7fafc;
+    text-align: center;
+}
+
+.setup-password-hint p {
+    margin: 0;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+.setup-password-hint a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.setup-password-hint a:hover {
+    text-decoration: underline;
+}
+
+/* 访客模式提示 */
+.visitor-notice {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.visitor-notice i {
+    color: #ff9800;
+    font-size: 1.2rem;
+}
+
+.visitor-notice-text {
+    color: #e65100;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* 隐藏的管理员操作按钮 */
+.project-actions.visitor-mode {
+    display: none;
+}
+
 /* 动画 */
 @keyframes fadeIn {
     from {
@@ -516,6 +632,16 @@ form {
         flex-direction: column;
         gap: 15px;
         text-align: center;
+    }
+    
+    .header-actions {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .admin-info {
+        justify-content: center;
     }
     
     .header h1 {

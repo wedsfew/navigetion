@@ -13,9 +13,20 @@
         <header class="header">
             <div class="header-content">
                 <h1><i class="fas fa-code"></i> 我的项目导航</h1>
-                <button class="add-btn" onclick="openAddModal()">
-                    <i class="fas fa-plus"></i> 添加项目
-                </button>
+                <div class="header-actions">
+                    <div class="admin-info" id="adminInfo" style="display: none;">
+                        <span class="admin-name">管理员已登录</span>
+                        <button class="logout-btn" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> 登出
+                        </button>
+                    </div>
+                    <button class="login-btn" id="loginBtn" onclick="openLoginModal()">
+                        <i class="fas fa-sign-in-alt"></i> 管理员登录
+                    </button>
+                    <button class="add-btn" id="addBtn" onclick="openAddModal()" style="display: none;">
+                        <i class="fas fa-plus"></i> 添加项目
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -32,6 +43,14 @@
                 <button class="filter-btn" data-category="desktop">桌面端</button>
                 <button class="filter-btn" data-category="other">其他</button>
             </div>
+        </div>
+
+        <!-- 访客模式提示 -->
+        <div class="visitor-notice" id="visitorNotice" style="display: none;">
+            <i class="fas fa-info-circle"></i>
+            <span class="visitor-notice-text">
+                您正在以访客模式浏览。如需添加、编辑或删除项目，请先登录管理员账户。
+            </span>
         </div>
 
         <!-- 项目网格 -->
@@ -106,6 +125,57 @@
                 <button type="button" class="btn-cancel" onclick="closeDeleteModal()">取消</button>
                 <button type="button" class="btn-delete" onclick="confirmDelete()">删除</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 管理员登录模态框 -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>管理员登录</h2>
+                <button class="close-btn" onclick="closeLoginModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="adminPassword">管理员密码</label>
+                    <input type="password" id="adminPassword" required placeholder="请输入管理员密码">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeLoginModal()">取消</button>
+                    <button type="submit" class="btn-submit">登录</button>
+                </div>
+            </form>
+            <div class="setup-password-hint">
+                <p>首次使用？<a href="#" onclick="openSetupModal()">设置管理员密码</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置管理员密码模态框 -->
+    <div class="modal" id="setupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>设置管理员密码</h2>
+                <button class="close-btn" onclick="closeSetupModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="setupForm">
+                <div class="form-group">
+                    <label for="newPassword">新密码</label>
+                    <input type="password" id="newPassword" required minlength="6" placeholder="请输入新密码（至少6位）">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">确认密码</label>
+                    <input type="password" id="confirmPassword" required minlength="6" placeholder="请再次输入密码">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeSetupModal()">取消</button>
+                    <button type="submit" class="btn-submit">设置密码</button>
+                </div>
+            </form>
         </div>
     </div>
 

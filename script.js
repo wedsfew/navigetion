@@ -6,14 +6,18 @@ class ProjectManager {
         this.currentDeleteId = null;
         this.currentFilter = 'all';
         this.searchTerm = '';
+        this.isAdmin = false;
+        this.adminPassword = this.loadAdminPassword();
         
         this.init();
     }
 
     init() {
+        this.checkAdminStatus();
         this.renderProjects();
         this.bindEvents();
         this.updateEmptyState();
+        this.updateUIForAdminStatus();
     }
 
     // 绑定事件
@@ -56,11 +60,37 @@ class ProjectManager {
             }
         });
 
+        document.getElementById('loginModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('loginModal')) {
+                this.closeLoginModal();
+            }
+        });
+
+        document.getElementById('setupModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('setupModal')) {
+                this.closeSetupModal();
+            }
+        });
+
+        // 登录表单提交
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleLogin();
+        });
+
+        // 设置密码表单提交
+        document.getElementById('setupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleSetupPassword();
+        });
+
         // ESC键关闭模态框
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closeModal();
                 this.closeDeleteModal();
+                this.closeLoginModal();
+                this.closeSetupModal();
             }
         });
     }
@@ -76,6 +106,69 @@ class ProjectManager {
         localStorage.setItem('projects', JSON.stringify(this.projects));
     }
 
+    // 管理员相关方法
+    loadAdminPassword() {
+        return localStorage.getItem('adminPassword');
+    }
+
+    saveAdminPassword(password) {
+        // 简单的密码加密（实际应用中应使用更安全的方法）
+        const encrypted = btoa(password);
+        localStorage.setItem('adminPassword', encrypted);
+    }
+
+    checkAdminStatus() {
+        const adminSession = localStorage.getItem('adminSession');
+        if (adminSession) {
+            const sessionData = JSON.parse(adminSession);
+            // 检查会话是否过期（24小时）
+            const now = Date.now();
+            if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+                this.isAdmin = true;
+                return;
+            } else {
+                localStorage.removeItem('adminSession');
+            }
+        }
+        this.isAdmin = false;
+    }
+
+    setAdminSession() {
+        const sessionData = {
+            timestamp: Date.now(),
+            isAdmin: true
+        };
+        localStorage.setItem('adminSession', JSON.stringify(sessionData));
+        this.isAdmin = true;
+    }
+
+    clearAdminSession() {
+        localStorage.removeItem('adminSession');
+        this.isAdmin = false;
+    }
+
+    updateUIForAdminStatus() {
+        const loginBtn = document.getElementById('loginBtn');
+        const addBtn = document.getElementById('addBtn');
+        const adminInfo = document.getElementById('adminInfo');
+        const visitorNotice = document.getElementById('visitorNotice');
+
+        if (this.isAdmin) {
+            loginBtn.style.display = 'none';
+            addBtn.style.display = 'flex';
+            adminInfo.style.display = 'flex';
+            visitorNotice.style.display = 'none';
+        } else {
+            loginBtn.style.display = 'flex';
+            addBtn.style.display = 'none';
+            adminInfo.style.display = 'none';
+            visitorNotice.style.display = 'flex';
+        }
+
+        // 更新项目卡片的操作按钮
+        this.renderProjects();
+    }
+
     // 生成唯一ID
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -83,6 +176,11 @@ class ProjectManager {
 
     // 保存项目
     saveProject() {
+        if (!this.isAdmin) {
+            alert('请先登录管理员账户');
+            return;
+        }
+
         const form = document.getElementById('projectForm');
         const formData = new FormData(form);
         
@@ -131,11 +229,66 @@ class ProjectManager {
 
     // 删除项目
     deleteProject(id) {
+        if (!this.isAdmin) {
+            alert('请先登录管理员账户');
+            return;
+        }
+
         this.projects = this.projects.filter(p => p.id !== id);
         this.saveProjects();
         this.renderProjects();
         this.updateEmptyState();
         this.showMessage('项目删除成功！');
+    }
+
+    // 处理登录
+    handleLogin() {
+        const password = document.getElementById('adminPassword').value;
+        
+        if (!this.adminPassword) {
+            alert('请先设置管理员密码');
+            this.openSetupModal();
+            return;
+        }
+
+        const decryptedPassword = atob(this.adminPassword);
+        if (password === decryptedPassword) {
+            this.setAdminSession();
+            this.updateUIForAdminStatus();
+            this.closeLoginModal();
+            this.showMessage('管理员登录成功！');
+        } else {
+            alert('密码错误');
+        }
+    }
+
+    // 处理设置密码
+    handleSetupPassword() {
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+
+        if (newPassword !== confirmPassword) {
+            alert('两次输入的密码不一致');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            alert('密码长度至少为6位');
+            return;
+        }
+
+        this.saveAdminPassword(newPassword);
+        this.setAdminSession();
+        this.updateUIForAdminStatus();
+        this.closeSetupModal();
+        this.showMessage('管理员密码设置成功！');
+    }
+
+    // 登出
+    logout() {
+        this.clearAdminSession();
+        this.updateUIForAdminStatus();
+        this.showMessage('已退出管理员账户');
     }
 
     // 渲染项目列表
@@ -182,20 +335,25 @@ class ProjectManager {
     createProjectCard(project) {
         const card = document.createElement('div');
         card.className = 'project-card';
+        
+        const actionsHTML = this.isAdmin ? `
+            <div class="project-actions">
+                <button class="action-btn edit-btn" onclick="projectManager.editProject('${project.id}')" title="编辑">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn delete-btn" onclick="projectManager.confirmDelete('${project.id}')" title="删除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        ` : '';
+
         card.innerHTML = `
             <div class="project-header">
                 <div>
                     <h3 class="project-title">${this.escapeHtml(project.name)}</h3>
                     <span class="project-category">${this.getCategoryName(project.category)}</span>
                 </div>
-                <div class="project-actions">
-                    <button class="action-btn edit-btn" onclick="projectManager.editProject('${project.id}')" title="编辑">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn delete-btn" onclick="projectManager.confirmDelete('${project.id}')" title="删除">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+                ${actionsHTML}
             </div>
             <p class="project-description">${this.escapeHtml(project.description)}</p>
             <div class="project-tags">
@@ -286,6 +444,11 @@ class ProjectManager {
 
     // 编辑项目
     editProject(id) {
+        if (!this.isAdmin) {
+            alert('请先登录管理员账户');
+            return;
+        }
+
         const project = this.projects.find(p => p.id === id);
         if (!project) return;
 
@@ -321,6 +484,10 @@ class ProjectManager {
 
     // 打开添加模态框
     openModal() {
+        if (!this.isAdmin) {
+            alert('请先登录管理员账户');
+            return;
+        }
         document.getElementById('projectModal').classList.add('active');
         document.body.style.overflow = 'hidden';
     }
@@ -342,6 +509,33 @@ class ProjectManager {
         document.body.style.overflow = '';
         this.currentDeleteId = null;
     }
+
+    // 打开登录模态框
+    openLoginModal() {
+        document.getElementById('loginModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // 关闭登录模态框
+    closeLoginModal() {
+        document.getElementById('loginModal').classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('loginForm').reset();
+    }
+
+    // 打开设置密码模态框
+    openSetupModal() {
+        document.getElementById('setupModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        this.closeLoginModal();
+    }
+
+    // 关闭设置密码模态框
+    closeSetupModal() {
+        document.getElementById('setupModal').classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('setupForm').reset();
+    }
 }
 
 // 全局函数（用于HTML中的onclick事件）
@@ -359,6 +553,26 @@ function closeDeleteModal() {
 
 function confirmDelete() {
     projectManager.confirmDeleteAction();
+}
+
+function openLoginModal() {
+    projectManager.openLoginModal();
+}
+
+function closeLoginModal() {
+    projectManager.closeLoginModal();
+}
+
+function openSetupModal() {
+    projectManager.openSetupModal();
+}
+
+function closeSetupModal() {
+    projectManager.closeSetupModal();
+}
+
+function logout() {
+    projectManager.logout();
 }
 
 // 添加动画样式
