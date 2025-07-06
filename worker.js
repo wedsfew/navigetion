@@ -136,6 +136,25 @@ export default {
         return await handleDeleteProject(request, env, projectId);
       }
       
+      // 分类管理API
+      if (path === '/api/categories' && method === 'GET') {
+        return await handleGetCategories(request, env);
+      }
+      
+      if (path === '/api/categories' && method === 'POST') {
+        return await handleCreateCategory(request, env);
+      }
+      
+      if (path.startsWith('/api/categories/') && method === 'PUT') {
+        const categoryId = path.split('/').pop();
+        return await handleUpdateCategory(request, env, categoryId);
+      }
+      
+      if (path.startsWith('/api/categories/') && method === 'DELETE') {
+        const categoryId = path.split('/').pop();
+        return await handleDeleteCategory(request, env, categoryId);
+      }
+      
       // 默认返回404
       return new Response('Not Found', { 
         status: 404,
@@ -504,6 +523,207 @@ async function handleDeleteProject(request, env, projectId) {
     
   } catch (error) {
     console.error('Delete project error:', error);
+    return new Response(JSON.stringify({ error: '服务器错误' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// 获取分类列表
+async function handleGetCategories(request, env) {
+  try {
+    const categoriesData = await env.NAVIGATION_KV.get('categories');
+    let categories = categoriesData ? JSON.parse(categoriesData) : [];
+    
+    // 如果没有分类，初始化默认分类
+    if (categories.length === 0) {
+      const defaultCategories = [
+        { id: 'web', name: '网站', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: 'mobile', name: '移动端', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: 'desktop', name: '桌面端', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: 'other', name: '其他', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+      ];
+      
+      // 保存默认分类
+      await env.NAVIGATION_KV.put('categories', JSON.stringify(defaultCategories));
+      categories = defaultCategories;
+    }
+    
+    return new Response(JSON.stringify({ categories }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
+  } catch (error) {
+    console.error('Get categories error:', error);
+    return new Response(JSON.stringify({ error: '服务器错误' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// 创建分类
+async function handleCreateCategory(request, env) {
+  try {
+    // 验证管理员权限
+    const adminPayload = await verifyAdminToken(request);
+    if (!adminPayload) {
+      return new Response(JSON.stringify({ error: '需要管理员权限' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const categoryData = await request.json();
+    
+    // 验证分类数据
+    if (!categoryData.name) {
+      return new Response(JSON.stringify({ error: '分类名称不能为空' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // 生成分类ID
+    const categoryId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    
+    // 创建分类对象
+    const category = {
+      id: categoryId,
+      name: categoryData.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // 获取现有分类
+    const existingCategoriesData = await env.NAVIGATION_KV.get('categories');
+    const existingCategories = existingCategoriesData ? JSON.parse(existingCategoriesData) : [];
+    
+    // 添加新分类到列表开头
+    existingCategories.unshift(category);
+    
+    // 保存到KV
+    await env.NAVIGATION_KV.put('categories', JSON.stringify(existingCategories));
+    
+    return new Response(JSON.stringify({ 
+      message: '分类创建成功',
+      category: category 
+    }), {
+      status: 201,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
+  } catch (error) {
+    console.error('Create category error:', error);
+    return new Response(JSON.stringify({ error: '服务器错误' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// 更新分类
+async function handleUpdateCategory(request, env, categoryId) {
+  try {
+    // 验证管理员权限
+    const adminPayload = await verifyAdminToken(request);
+    if (!adminPayload) {
+      return new Response(JSON.stringify({ error: '需要管理员权限' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const categoryData = await request.json();
+    
+    // 验证分类数据
+    if (!categoryData.name) {
+      return new Response(JSON.stringify({ error: '分类名称不能为空' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // 获取现有分类
+    const existingCategoriesData = await env.NAVIGATION_KV.get('categories');
+    const existingCategories = existingCategoriesData ? JSON.parse(existingCategoriesData) : [];
+    
+    // 找到要更新的分类
+    const categoryIndex = existingCategories.findIndex(c => c.id === categoryId);
+    if (categoryIndex === -1) {
+      return new Response(JSON.stringify({ error: '分类不存在' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // 更新分类
+    existingCategories[categoryIndex] = {
+      ...existingCategories[categoryIndex],
+      name: categoryData.name,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // 保存到KV
+    await env.NAVIGATION_KV.put('categories', JSON.stringify(existingCategories));
+    
+    return new Response(JSON.stringify({ 
+      message: '分类更新成功',
+      category: existingCategories[categoryIndex] 
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
+  } catch (error) {
+    console.error('Update category error:', error);
+    return new Response(JSON.stringify({ error: '服务器错误' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// 删除分类
+async function handleDeleteCategory(request, env, categoryId) {
+  try {
+    // 验证管理员权限
+    const adminPayload = await verifyAdminToken(request);
+    if (!adminPayload) {
+      return new Response(JSON.stringify({ error: '需要管理员权限' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // 获取现有分类
+    const existingCategoriesData = await env.NAVIGATION_KV.get('categories');
+    const existingCategories = existingCategoriesData ? JSON.parse(existingCategoriesData) : [];
+    
+    // 找到要删除的分类
+    const categoryIndex = existingCategories.findIndex(c => c.id === categoryId);
+    if (categoryIndex === -1) {
+      return new Response(JSON.stringify({ error: '分类不存在' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // 删除分类
+    existingCategories.splice(categoryIndex, 1);
+    
+    // 保存到KV
+    await env.NAVIGATION_KV.put('categories', JSON.stringify(existingCategories));
+    
+    return new Response(JSON.stringify({ message: '分类删除成功' }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
+  } catch (error) {
+    console.error('Delete category error:', error);
     return new Response(JSON.stringify({ error: '服务器错误' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

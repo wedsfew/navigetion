@@ -2,6 +2,7 @@
 class ProjectManager {
     constructor() {
         this.projects = [];
+        this.categories = [];
         this.currentEditingId = null;
         this.currentDeleteId = null;
         this.currentFilter = 'all';
@@ -21,6 +22,7 @@ class ProjectManager {
 
     async init() {
         await this.loadAdminToken();
+        await this.loadCategories();
         await this.loadProjects();
         this.bindEvents();
         this.updateEmptyState();
@@ -115,6 +117,168 @@ class ProjectManager {
         }
     }
 
+    // 加载分类列表
+    async loadCategories() {
+        try {
+            const response = await this.apiCall('/api/categories');
+            this.categories = response.categories || [];
+            this.renderCategories();
+            this.updateCategorySelect();
+        } catch (error) {
+            console.error('加载分类失败:', error);
+            this.showMessage('加载分类失败: ' + error.message, 'error');
+        }
+    }
+
+    // 渲染分类过滤器
+    renderCategories() {
+        const filterButtons = document.querySelector('.filter-buttons');
+        
+        // 清空现有的分类按钮（保留"全部"按钮）
+        const allButton = filterButtons.querySelector('.filter-btn[data-category="all"]');
+        filterButtons.innerHTML = '';
+        filterButtons.appendChild(allButton);
+        
+        // 添加自定义分类按钮
+        this.categories.forEach(category => {
+            const button = document.createElement('button');
+            button.className = 'filter-btn';
+            button.dataset.category = category.id;
+            button.textContent = category.name;
+            button.addEventListener('click', (e) => {
+                // 更新按钮状态
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // 更新过滤器
+                this.currentFilter = e.target.dataset.category;
+                this.filterAndRenderProjects();
+            });
+            filterButtons.appendChild(button);
+        });
+    }
+
+    // 更新项目表单中的分类选择
+    updateCategorySelect() {
+        const categorySelect = document.getElementById('projectCategory');
+        if (!categorySelect) return;
+        
+        // 清空现有选项
+        categorySelect.innerHTML = '';
+        
+        // 添加自定义分类选项
+        this.categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            categorySelect.appendChild(option);
+        });
+    }
+
+    // 创建分类
+    async createCategory(name) {
+        if (!this.isAdmin) {
+            this.showMessage('需要管理员权限', 'error');
+            return;
+        }
+
+        try {
+            const response = await this.apiCall('/api/categories', {
+                method: 'POST',
+                body: JSON.stringify({ name })
+            });
+            
+            this.showMessage('分类创建成功', 'success');
+            await this.loadCategories();
+            return response.category;
+        } catch (error) {
+            console.error('创建分类失败:', error);
+            this.showMessage('创建分类失败: ' + error.message, 'error');
+        }
+    }
+
+    // 更新分类
+    async updateCategory(id, name) {
+        if (!this.isAdmin) {
+            this.showMessage('需要管理员权限', 'error');
+            return;
+        }
+
+        try {
+            const response = await this.apiCall(`/api/categories/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name })
+            });
+            
+            this.showMessage('分类更新成功', 'success');
+            await this.loadCategories();
+            return response.category;
+        } catch (error) {
+            console.error('更新分类失败:', error);
+            this.showMessage('更新分类失败: ' + error.message, 'error');
+        }
+    }
+
+    // 删除分类
+    async deleteCategory(id) {
+        if (!this.isAdmin) {
+            this.showMessage('需要管理员权限', 'error');
+            return;
+        }
+
+        try {
+            await this.apiCall(`/api/categories/${id}`, {
+                method: 'DELETE'
+            });
+            
+            this.showMessage('分类删除成功', 'success');
+            await this.loadCategories();
+            
+            // 如果当前筛选的是被删除的分类，切换到"全部"
+            if (this.currentFilter === id) {
+                this.currentFilter = 'all';
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.filter-btn[data-category="all"]').classList.add('active');
+                this.filterAndRenderProjects();
+            }
+        } catch (error) {
+            console.error('删除分类失败:', error);
+            this.showMessage('删除分类失败: ' + error.message, 'error');
+        }
+    }
+
+    // 渲染分类管理列表
+    renderCategoryList() {
+        const categoryList = document.getElementById('categoryList');
+        if (!categoryList) return;
+        
+        if (this.categories.length === 0) {
+            categoryList.innerHTML = '<div class="no-categories">暂无分类</div>';
+            return;
+        }
+        
+        categoryList.innerHTML = this.categories.map(category => `
+            <div class="category-item" data-id="${category.id}">
+                <div class="category-item-name">${this.escapeHtml(category.name)}</div>
+                <div class="category-item-actions">
+                    <button class="category-action-btn category-edit-btn" onclick="startEditCategory('${category.id}')">
+                        <i class="fas fa-edit"></i> 编辑
+                    </button>
+                    <button class="category-action-btn category-delete-btn" onclick="confirmDeleteCategory('${category.id}')">
+                        <i class="fas fa-trash"></i> 删除
+                    </button>
+                </div>
+                <div class="category-edit-form" id="editForm-${category.id}">
+                    <input type="text" class="category-edit-input" id="editInput-${category.id}" value="${this.escapeHtml(category.name)}">
+                    <div class="category-edit-actions">
+                        <button class="category-save-btn" onclick="saveEditCategory('${category.id}')">保存</button>
+                        <button class="category-cancel-btn" onclick="cancelEditCategory('${category.id}')">取消</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
     // 绑定事件
     bindEvents() {
         // 表单提交
@@ -179,6 +343,19 @@ class ProjectManager {
             this.handleSetupPassword();
         });
 
+        // 分类表单提交
+        document.getElementById('categoryForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleCreateCategory();
+        });
+
+        // 分类管理模态框点击外部关闭
+        document.getElementById('categoryModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('categoryModal')) {
+                this.closeCategoryModal();
+            }
+        });
+
         // ESC键关闭模态框
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -186,6 +363,7 @@ class ProjectManager {
                 this.closeDeleteModal();
                 this.closeLoginModal();
                 this.closeSetupModal();
+                this.closeCategoryModal();
             }
         });
     }
@@ -457,14 +635,21 @@ class ProjectManager {
     }
 
     // 获取分类名称
-    getCategoryName(category) {
+    getCategoryName(categoryId) {
+        // 查找自定义分类
+        const customCategory = this.categories.find(c => c.id === categoryId);
+        if (customCategory) {
+            return customCategory.name;
+        }
+        
+        // 兼容旧的硬编码分类
         const names = {
             'web': '网站',
             'mobile': '移动端',
             'desktop': '桌面端',
             'other': '其他'
         };
-        return names[category] || category;
+        return names[categoryId] || categoryId;
     }
 
     // HTML转义
@@ -605,12 +790,14 @@ class ProjectManager {
         const addBtn = document.getElementById('addBtn');
         const adminInfo = document.getElementById('adminInfo');
         const visitorNotice = document.getElementById('visitorNotice');
+        const categoryManagement = document.getElementById('categoryManagement');
 
         if (this.isAdmin) {
             loginBtn.style.display = 'none';
             addBtn.style.display = 'flex';
             adminInfo.style.display = 'flex';
             visitorNotice.style.display = 'none';
+            categoryManagement.style.display = 'block';
             
             // 更新管理员名称显示
             const adminName = adminInfo.querySelector('.admin-name');
@@ -622,6 +809,7 @@ class ProjectManager {
             addBtn.style.display = 'none';
             adminInfo.style.display = 'none';
             visitorNotice.style.display = 'flex';
+            categoryManagement.style.display = 'none';
         }
 
         // 更新项目卡片的操作按钮
@@ -683,6 +871,45 @@ class ProjectManager {
         document.body.style.overflow = '';
         document.getElementById('setupForm').reset();
     }
+
+    // 打开分类管理模态框
+    openCategoryModal() {
+        if (!this.isAdmin) {
+            this.showMessage('请先登录管理员账户', 'error');
+            return;
+        }
+        document.getElementById('categoryModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        this.renderCategoryList();
+    }
+
+    // 关闭分类管理模态框
+    closeCategoryModal() {
+        document.getElementById('categoryModal').classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('categoryForm').reset();
+    }
+
+    // 处理创建分类
+    async handleCreateCategory() {
+        const categoryName = document.getElementById('categoryName').value.trim();
+        
+        if (!categoryName) {
+            this.showMessage('请输入分类名称', 'error');
+            return;
+        }
+        
+        // 检查分类名称是否已存在
+        const existingCategory = this.categories.find(c => c.name === categoryName);
+        if (existingCategory) {
+            this.showMessage('分类名称已存在', 'error');
+            return;
+        }
+        
+        await this.createCategory(categoryName);
+        document.getElementById('categoryName').value = '';
+        this.renderCategoryList();
+    }
 }
 
 // 全局函数（用于HTML中的onclick事件）
@@ -720,6 +947,66 @@ function closeSetupModal() {
 
 function logout() {
     projectManager.logout();
+}
+
+// 分类管理相关的全局函数
+function openCategoryModal() {
+    projectManager.openCategoryModal();
+}
+
+function closeCategoryModal() {
+    projectManager.closeCategoryModal();
+}
+
+function startEditCategory(id) {
+    const editForm = document.getElementById(`editForm-${id}`);
+    const categoryItem = document.querySelector(`[data-id="${id}"]`);
+    
+    if (editForm && categoryItem) {
+        editForm.classList.add('active');
+        const input = document.getElementById(`editInput-${id}`);
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }
+}
+
+function saveEditCategory(id) {
+    const input = document.getElementById(`editInput-${id}`);
+    if (input) {
+        const newName = input.value.trim();
+        if (newName) {
+            projectManager.updateCategory(id, newName);
+            cancelEditCategory(id);
+        } else {
+            projectManager.showMessage('请输入分类名称', 'error');
+        }
+    }
+}
+
+function cancelEditCategory(id) {
+    const editForm = document.getElementById(`editForm-${id}`);
+    if (editForm) {
+        editForm.classList.remove('active');
+        // 恢复原始值
+        const category = projectManager.categories.find(c => c.id === id);
+        if (category) {
+            const input = document.getElementById(`editInput-${id}`);
+            if (input) {
+                input.value = category.name;
+            }
+        }
+    }
+}
+
+function confirmDeleteCategory(id) {
+    const category = projectManager.categories.find(c => c.id === id);
+    if (category) {
+        if (confirm(`确定要删除分类"${category.name}"吗？\n\n删除分类不会影响已有的项目，但会将该分类从过滤器中移除。`)) {
+            projectManager.deleteCategory(id);
+        }
+    }
 }
 
 // 添加动画样式

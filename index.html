@@ -38,10 +38,12 @@
             </div>
             <div class="filter-buttons">
                 <button class="filter-btn active" data-category="all">全部</button>
-                <button class="filter-btn" data-category="web">网站</button>
-                <button class="filter-btn" data-category="mobile">移动端</button>
-                <button class="filter-btn" data-category="desktop">桌面端</button>
-                <button class="filter-btn" data-category="other">其他</button>
+                <!-- 分类按钮将通过JavaScript动态生成 -->
+            </div>
+            <div class="category-management" id="categoryManagement" style="display: none;">
+                <button class="manage-categories-btn" onclick="openCategoryModal()">
+                    <i class="fas fa-cog"></i> 管理分类
+                </button>
             </div>
         </div>
 
@@ -184,6 +186,38 @@
                     <button type="submit" class="btn-submit">设置密码</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 分类管理模态框 -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>分类管理</h2>
+                <button class="close-btn" onclick="closeCategoryModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="category-form">
+                    <h3>添加新分类</h3>
+                    <form id="categoryForm">
+                        <div class="form-group">
+                            <label for="categoryName">分类名称</label>
+                            <input type="text" id="categoryName" required placeholder="请输入分类名称">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-submit">添加分类</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="category-list">
+                    <h3>现有分类</h3>
+                    <div id="categoryList" class="category-items">
+                        <!-- 分类列表将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

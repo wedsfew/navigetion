@@ -702,4 +702,176 @@ form {
         height: 28px;
         font-size: 0.8rem;
     }
+}
+
+/* 分类管理样式 */
+.category-management {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.manage-categories-btn {
+    background: #4a5568;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.manage-categories-btn:hover {
+    background: #2d3748;
+    transform: translateY(-1px);
+}
+
+.category-form {
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+}
+
+.category-form h3 {
+    margin: 0 0 15px 0;
+    color: #2d3748;
+    font-size: 1.1rem;
+}
+
+.category-list h3 {
+    margin: 0 0 15px 0;
+    color: #2d3748;
+    font-size: 1.1rem;
+}
+
+.category-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.category-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.category-item:hover {
+    background: #edf2f7;
+}
+
+.category-item-name {
+    font-weight: 500;
+    color: #2d3748;
+    flex-grow: 1;
+}
+
+.category-item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.category-action-btn {
+    background: none;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.category-edit-btn {
+    color: #2b6cb0;
+    background: rgba(43, 108, 176, 0.1);
+}
+
+.category-edit-btn:hover {
+    background: rgba(43, 108, 176, 0.2);
+}
+
+.category-delete-btn {
+    color: #c53030;
+    background: rgba(197, 48, 48, 0.1);
+}
+
+.category-delete-btn:hover {
+    background: rgba(197, 48, 48, 0.2);
+}
+
+.category-edit-form {
+    display: none;
+    margin-top: 10px;
+}
+
+.category-edit-form.active {
+    display: block;
+}
+
+.category-edit-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.category-edit-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.category-save-btn {
+    background: #48bb78;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.category-save-btn:hover {
+    background: #38a169;
+}
+
+.category-cancel-btn {
+    background: #e2e8f0;
+    color: #4a5568;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.category-cancel-btn:hover {
+    background: #cbd5e0;
+}
+
+.no-categories {
+    text-align: center;
+    padding: 30px;
+    color: #718096;
+    font-style: italic;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
 } 
