@@ -1,23 +1,117 @@
-// 项目管理器
+// 项目管理器 - 使用Cloudflare Worker API
 class ProjectManager {
     constructor() {
-        this.projects = this.loadProjects();
+        this.projects = [];
         this.currentEditingId = null;
         this.currentDeleteId = null;
         this.currentFilter = 'all';
         this.searchTerm = '';
         this.isAdmin = false;
-        this.adminPassword = this.loadAdminPassword();
+        this.adminToken = null;
+        this.adminUsername = null;
+        
+        // API配置 - 在部署时需要更新为实际的Worker URL
+        this.apiBaseUrl = window.location.origin.includes('localhost') 
+            ? 'http://localhost:8787' // 本地开发时的Worker URL
+            : 'https://navigation-worker.your-subdomain.workers.dev'; // 生产环境Worker URL
         
         this.init();
     }
 
-    init() {
-        this.checkAdminStatus();
-        this.renderProjects();
+    async init() {
+        await this.loadAdminToken();
+        await this.loadProjects();
         this.bindEvents();
         this.updateEmptyState();
         this.updateUIForAdminStatus();
+    }
+
+    // API调用函数
+    async apiCall(endpoint, options = {}) {
+        const url = `${this.apiBaseUrl}${endpoint}`;
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        };
+
+        // 如果有token，添加到请求头
+        if (this.adminToken) {
+            defaultOptions.headers['Authorization'] = `Bearer ${this.adminToken}`;
+        }
+
+        const response = await fetch(url, {
+            ...defaultOptions,
+            ...options
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: '网络错误' }));
+            throw new Error(error.error || '请求失败');
+        }
+
+        return await response.json();
+    }
+
+    // 加载管理员token
+    async loadAdminToken() {
+        const token = localStorage.getItem('adminToken');
+        const username = localStorage.getItem('adminUsername');
+        
+        if (token && username) {
+            try {
+                // 验证token是否有效
+                const response = await this.apiCall('/api/auth/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ token })
+                });
+                
+                if (response.valid) {
+                    this.adminToken = token;
+                    this.adminUsername = username;
+                    this.isAdmin = true;
+                } else {
+                    // Token无效，清除本地存储
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUsername');
+                }
+            } catch (error) {
+                console.error('Token验证失败:', error);
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUsername');
+            }
+        }
+    }
+
+    // 保存管理员token
+    saveAdminToken(token, username) {
+        localStorage.setItem('adminToken', token);
+        localStorage.setItem('adminUsername', username);
+        this.adminToken = token;
+        this.adminUsername = username;
+        this.isAdmin = true;
+    }
+
+    // 清除管理员token
+    clearAdminToken() {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUsername');
+        this.adminToken = null;
+        this.adminUsername = null;
+        this.isAdmin = false;
+    }
+
+    // 加载项目列表
+    async loadProjects() {
+        try {
+            const response = await this.apiCall('/api/projects');
+            this.projects = response.projects || [];
+            this.renderProjects();
+        } catch (error) {
+            console.error('加载项目失败:', error);
+            this.showMessage('加载项目失败: ' + error.message, 'error');
+        }
     }
 
     // 绑定事件
@@ -95,95 +189,18 @@ class ProjectManager {
         });
     }
 
-    // 从本地存储加载项目
-    loadProjects() {
-        const saved = localStorage.getItem('projects');
-        return saved ? JSON.parse(saved) : [];
-    }
-
-    // 保存项目到本地存储
-    saveProjects() {
-        localStorage.setItem('projects', JSON.stringify(this.projects));
-    }
-
-    // 管理员相关方法
-    loadAdminPassword() {
-        return localStorage.getItem('adminPassword');
-    }
-
-    saveAdminPassword(password) {
-        // 简单的密码加密（实际应用中应使用更安全的方法）
-        const encrypted = btoa(password);
-        localStorage.setItem('adminPassword', encrypted);
-    }
-
-    checkAdminStatus() {
-        const adminSession = localStorage.getItem('adminSession');
-        if (adminSession) {
-            const sessionData = JSON.parse(adminSession);
-            // 检查会话是否过期（24小时）
-            const now = Date.now();
-            if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
-                this.isAdmin = true;
-                return;
-            } else {
-                localStorage.removeItem('adminSession');
-            }
-        }
-        this.isAdmin = false;
-    }
-
-    setAdminSession() {
-        const sessionData = {
-            timestamp: Date.now(),
-            isAdmin: true
-        };
-        localStorage.setItem('adminSession', JSON.stringify(sessionData));
-        this.isAdmin = true;
-    }
-
-    clearAdminSession() {
-        localStorage.removeItem('adminSession');
-        this.isAdmin = false;
-    }
-
-    updateUIForAdminStatus() {
-        const loginBtn = document.getElementById('loginBtn');
-        const addBtn = document.getElementById('addBtn');
-        const adminInfo = document.getElementById('adminInfo');
-        const visitorNotice = document.getElementById('visitorNotice');
-
-        if (this.isAdmin) {
-            loginBtn.style.display = 'none';
-            addBtn.style.display = 'flex';
-            adminInfo.style.display = 'flex';
-            visitorNotice.style.display = 'none';
-        } else {
-            loginBtn.style.display = 'flex';
-            addBtn.style.display = 'none';
-            adminInfo.style.display = 'none';
-            visitorNotice.style.display = 'flex';
-        }
-
-        // 更新项目卡片的操作按钮
-        this.renderProjects();
-    }
-
     // 生成唯一ID
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
 
     // 保存项目
-    saveProject() {
+    async saveProject() {
         if (!this.isAdmin) {
-            alert('请先登录管理员账户');
+            this.showMessage('请先登录管理员账户', 'error');
             return;
         }
 
-        const form = document.getElementById('projectForm');
-        const formData = new FormData(form);
-        
         const project = {
             name: document.getElementById('projectName').value.trim(),
             url: document.getElementById('projectUrl').value.trim(),
@@ -194,7 +211,7 @@ class ProjectManager {
 
         // 验证必填字段
         if (!project.name || !project.url) {
-            alert('请填写项目名称和链接');
+            this.showMessage('请填写项目名称和链接', 'error');
             return;
         }
 
@@ -202,91 +219,151 @@ class ProjectManager {
         try {
             new URL(project.url);
         } catch {
-            alert('请输入有效的URL');
+            this.showMessage('请输入有效的URL', 'error');
             return;
         }
 
-        if (this.currentEditingId) {
-            // 编辑现有项目
-            const index = this.projects.findIndex(p => p.id === this.currentEditingId);
-            if (index !== -1) {
-                this.projects[index] = { ...project, id: this.currentEditingId };
+        try {
+            if (this.currentEditingId) {
+                // 编辑现有项目
+                const response = await this.apiCall(`/api/projects/${this.currentEditingId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(project)
+                });
+                
+                // 更新本地项目列表
+                const index = this.projects.findIndex(p => p.id === this.currentEditingId);
+                if (index !== -1) {
+                    this.projects[index] = response.project;
+                }
+                
+                this.showMessage('项目更新成功！');
+            } else {
+                // 添加新项目
+                const response = await this.apiCall('/api/projects', {
+                    method: 'POST',
+                    body: JSON.stringify(project)
+                });
+                
+                // 添加到本地项目列表
+                this.projects.unshift(response.project);
+                
+                this.showMessage('项目添加成功！');
             }
-        } else {
-            // 添加新项目
-            project.id = this.generateId();
-            this.projects.unshift(project);
-        }
 
-        this.saveProjects();
-        this.renderProjects();
-        this.closeModal();
-        this.updateEmptyState();
-        
-        // 显示成功消息
-        this.showMessage(this.currentEditingId ? '项目更新成功！' : '项目添加成功！');
+            this.renderProjects();
+            this.closeModal();
+            this.updateEmptyState();
+            
+        } catch (error) {
+            console.error('保存项目失败:', error);
+            this.showMessage('保存项目失败: ' + error.message, 'error');
+        }
     }
 
     // 删除项目
-    deleteProject(id) {
+    async deleteProject(id) {
         if (!this.isAdmin) {
-            alert('请先登录管理员账户');
+            this.showMessage('请先登录管理员账户', 'error');
             return;
         }
 
-        this.projects = this.projects.filter(p => p.id !== id);
-        this.saveProjects();
-        this.renderProjects();
-        this.updateEmptyState();
-        this.showMessage('项目删除成功！');
+        try {
+            await this.apiCall(`/api/projects/${id}`, {
+                method: 'DELETE'
+            });
+            
+            // 从本地列表中移除
+            this.projects = this.projects.filter(p => p.id !== id);
+            
+            this.renderProjects();
+            this.updateEmptyState();
+            this.showMessage('项目删除成功！');
+            
+        } catch (error) {
+            console.error('删除项目失败:', error);
+            this.showMessage('删除项目失败: ' + error.message, 'error');
+        }
     }
 
     // 处理登录
-    handleLogin() {
+    async handleLogin() {
+        const username = document.getElementById('adminUsername').value.trim();
         const password = document.getElementById('adminPassword').value;
         
-        if (!this.adminPassword) {
-            alert('请先设置管理员密码');
-            this.openSetupModal();
+        if (!username || !password) {
+            this.showMessage('请填写用户名和密码', 'error');
             return;
         }
 
-        const decryptedPassword = atob(this.adminPassword);
-        if (password === decryptedPassword) {
-            this.setAdminSession();
+        try {
+            const response = await this.apiCall('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+            
+            this.saveAdminToken(response.token, response.username);
             this.updateUIForAdminStatus();
             this.closeLoginModal();
             this.showMessage('管理员登录成功！');
-        } else {
-            alert('密码错误');
+            
+        } catch (error) {
+            console.error('登录失败:', error);
+            if (error.message.includes('管理员账户不存在')) {
+                this.showMessage('管理员账户不存在，请先设置', 'error');
+                this.openSetupModal();
+            } else {
+                this.showMessage('登录失败: ' + error.message, 'error');
+            }
         }
     }
 
     // 处理设置密码
-    handleSetupPassword() {
+    async handleSetupPassword() {
+        const username = document.getElementById('setupUsername').value.trim();
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
+        if (!username) {
+            this.showMessage('请填写管理员用户名', 'error');
+            return;
+        }
+
         if (newPassword !== confirmPassword) {
-            alert('两次输入的密码不一致');
+            this.showMessage('两次输入的密码不一致', 'error');
             return;
         }
 
         if (newPassword.length < 6) {
-            alert('密码长度至少为6位');
+            this.showMessage('密码长度至少为6位', 'error');
             return;
         }
 
-        this.saveAdminPassword(newPassword);
-        this.setAdminSession();
-        this.updateUIForAdminStatus();
-        this.closeSetupModal();
-        this.showMessage('管理员密码设置成功！');
+        try {
+            const response = await this.apiCall('/api/auth/setup', {
+                method: 'POST',
+                body: JSON.stringify({ username, password: newPassword })
+            });
+            
+            this.showMessage('管理员账户创建成功！');
+            this.closeSetupModal();
+            
+            // 自动登录
+            setTimeout(() => {
+                document.getElementById('adminUsername').value = username;
+                document.getElementById('adminPassword').value = newPassword;
+                this.openLoginModal();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('设置密码失败:', error);
+            this.showMessage('设置密码失败: ' + error.message, 'error');
+        }
     }
 
     // 登出
     logout() {
-        this.clearAdminSession();
+        this.clearAdminToken();
         this.updateUIForAdminStatus();
         this.showMessage('已退出管理员账户');
     }
@@ -411,22 +488,28 @@ class ProjectManager {
     }
 
     // 显示消息
-    showMessage(message) {
+    showMessage(message, type = 'success') {
         // 创建消息提示
         const messageEl = document.createElement('div');
         messageEl.className = 'message';
         messageEl.textContent = message;
+        
+        const bgColor = type === 'error' ? '#f44336' : '#48bb78';
+        const shadowColor = type === 'error' ? 'rgba(244, 67, 54, 0.4)' : 'rgba(72, 187, 120, 0.4)';
+        
         messageEl.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #48bb78;
+            background: ${bgColor};
             color: white;
             padding: 15px 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(72, 187, 120, 0.4);
+            box-shadow: 0 4px 20px ${shadowColor};
             z-index: 2000;
             animation: slideInRight 0.3s ease;
+            max-width: 300px;
+            word-wrap: break-word;
         `;
 
         document.body.appendChild(messageEl);
@@ -445,7 +528,7 @@ class ProjectManager {
     // 编辑项目
     editProject(id) {
         if (!this.isAdmin) {
-            alert('请先登录管理员账户');
+            this.showMessage('请先登录管理员账户', 'error');
             return;
         }
 
@@ -469,6 +552,11 @@ class ProjectManager {
 
     // 确认删除
     confirmDelete(id) {
+        if (!this.isAdmin) {
+            this.showMessage('请先登录管理员账户', 'error');
+            return;
+        }
+        
         this.currentDeleteId = id;
         document.getElementById('deleteModal').classList.add('active');
     }
@@ -482,10 +570,39 @@ class ProjectManager {
         }
     }
 
+    // 更新UI管理员状态
+    updateUIForAdminStatus() {
+        const loginBtn = document.getElementById('loginBtn');
+        const addBtn = document.getElementById('addBtn');
+        const adminInfo = document.getElementById('adminInfo');
+        const visitorNotice = document.getElementById('visitorNotice');
+
+        if (this.isAdmin) {
+            loginBtn.style.display = 'none';
+            addBtn.style.display = 'flex';
+            adminInfo.style.display = 'flex';
+            visitorNotice.style.display = 'none';
+            
+            // 更新管理员名称显示
+            const adminName = adminInfo.querySelector('.admin-name');
+            if (adminName) {
+                adminName.textContent = `管理员: ${this.adminUsername}`;
+            }
+        } else {
+            loginBtn.style.display = 'flex';
+            addBtn.style.display = 'none';
+            adminInfo.style.display = 'none';
+            visitorNotice.style.display = 'flex';
+        }
+
+        // 更新项目卡片的操作按钮
+        this.renderProjects();
+    }
+
     // 打开添加模态框
     openModal() {
         if (!this.isAdmin) {
-            alert('请先登录管理员账户');
+            this.showMessage('请先登录管理员账户', 'error');
             return;
         }
         document.getElementById('projectModal').classList.add('active');
