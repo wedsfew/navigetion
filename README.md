@@ -18,7 +18,7 @@
 
 ### Cloudflare 一键部署
 
-🔥 **超简单部署方式**：查看 [cloudflare-setup.md](cloudflare-setup.md) 获取详细的图文部署教程
+🔥 **超简单部署方式**：查看 [cloudflare-setup.md](cloudflare-setup.md) 获取详细的中文界面部署教程
 
 **快速步骤**：
 1. **Worker**：创建Worker → 粘贴`worker.js`代码 → 添加KV绑定
@@ -77,7 +77,7 @@ navigetion/
 ├── config.js           # API配置文件 (需要更新Worker URL)
 ├── worker.js           # Cloudflare Worker后端API
 ├── wrangler.toml       # Worker配置文件
-├── cloudflare-setup.md # 🔥 一键部署教程
+├── cloudflare-setup.md # 🔥 中文界面部署教程
 └── README.md           # 项目说明
 ```
 
