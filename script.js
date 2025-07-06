@@ -308,6 +308,10 @@ class ProjectManager {
             this.closeLoginModal();
             this.showMessage('管理员登录成功！');
             
+            // 调试信息
+            console.log('登录成功，管理员状态:', this.isAdmin);
+            console.log('Token:', this.adminToken);
+            
         } catch (error) {
             console.error('登录失败:', error);
             if (error.message.includes('管理员账户不存在')) {
@@ -367,6 +371,10 @@ class ProjectManager {
         this.clearAdminToken();
         this.updateUIForAdminStatus();
         this.showMessage('已退出管理员账户');
+        
+        // 调试信息
+        console.log('登出成功，管理员状态:', this.isAdmin);
+        console.log('Token已清除');
     }
 
     // 渲染项目列表
@@ -413,6 +421,9 @@ class ProjectManager {
     createProjectCard(project) {
         const card = document.createElement('div');
         card.className = 'project-card';
+        
+        // 调试信息
+        console.log('创建项目卡片，管理员状态:', this.isAdmin, '项目ID:', project.id);
         
         const actionsHTML = this.isAdmin ? `
             <div class="project-actions">
@@ -528,13 +539,19 @@ class ProjectManager {
 
     // 编辑项目
     editProject(id) {
+        console.log('编辑项目被调用，项目ID:', id, '管理员状态:', this.isAdmin);
+        
         if (!this.isAdmin) {
             this.showMessage('请先登录管理员账户', 'error');
             return;
         }
 
         const project = this.projects.find(p => p.id === id);
-        if (!project) return;
+        if (!project) {
+            console.error('找不到项目，ID:', id, '现有项目:', this.projects);
+            this.showMessage('项目不存在', 'error');
+            return;
+        }
 
         this.currentEditingId = id;
 
@@ -553,8 +570,17 @@ class ProjectManager {
 
     // 确认删除
     confirmDelete(id) {
+        console.log('确认删除被调用，项目ID:', id, '管理员状态:', this.isAdmin);
+        
         if (!this.isAdmin) {
             this.showMessage('请先登录管理员账户', 'error');
+            return;
+        }
+        
+        const project = this.projects.find(p => p.id === id);
+        if (!project) {
+            console.error('找不到要删除的项目，ID:', id, '现有项目:', this.projects);
+            this.showMessage('项目不存在', 'error');
             return;
         }
         
@@ -573,6 +599,8 @@ class ProjectManager {
 
     // 更新UI管理员状态
     updateUIForAdminStatus() {
+        console.log('更新UI管理员状态，isAdmin:', this.isAdmin);
+        
         const loginBtn = document.getElementById('loginBtn');
         const addBtn = document.getElementById('addBtn');
         const adminInfo = document.getElementById('adminInfo');
@@ -597,6 +625,7 @@ class ProjectManager {
         }
 
         // 更新项目卡片的操作按钮
+        console.log('重新渲染项目，项目数量:', this.projects.length);
         this.renderProjects();
     }
 
@@ -721,39 +750,4 @@ style.textContent = `
 document.head.appendChild(style);
 
 // 初始化项目管理器
-const projectManager = new ProjectManager();
-
-// 添加一些示例项目（仅在第一次访问时）
-if (projectManager.projects.length === 0) {
-    const sampleProjects = [
-        {
-            id: 'sample1',
-            name: '个人博客',
-            url: 'https://example.com/blog',
-            description: '使用React和Node.js构建的个人博客系统，支持Markdown写作和评论功能。',
-            category: 'web',
-            tags: ['React', 'Node.js', 'MongoDB', 'Express']
-        },
-        {
-            id: 'sample2',
-            name: '任务管理应用',
-            url: 'https://example.com/todo',
-            description: '简洁高效的任务管理工具，支持项目分组、优先级设置和团队协作。',
-            category: 'web',
-            tags: ['Vue.js', 'Firebase', 'PWA']
-        },
-        {
-            id: 'sample3',
-            name: '天气预报App',
-            url: 'https://example.com/weather',
-            description: '基于React Native开发的天气预报应用，提供详细的天气信息和美观的UI。',
-            category: 'mobile',
-            tags: ['React Native', 'API', 'iOS', 'Android']
-        }
-    ];
-
-    projectManager.projects = sampleProjects;
-    projectManager.saveProjects();
-    projectManager.renderProjects();
-    projectManager.updateEmptyState();
-} 
+const projectManager = new ProjectManager(); 
