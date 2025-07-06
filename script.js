@@ -10,8 +10,11 @@ class ProjectManager {
         this.adminToken = null;
         this.adminUsername = null;
         
-        // API配置 - 自动从config.js获取
-        this.apiBaseUrl = window.API_CONFIG?.baseUrl || 'https://navigation-worker.wedsfew.workers.dev';
+        // API配置 - 从config.js文件加载
+        this.apiBaseUrl = window.API_CONFIG?.baseUrl || 
+            (window.location.origin.includes('localhost') 
+                ? 'http://localhost:8787'
+                : 'https://navigation-worker.your-subdomain.workers.dev');
         
         this.init();
     }

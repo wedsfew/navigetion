@@ -16,30 +16,15 @@
 
 ## 🚀 快速开始
 
-### 本地开发
+### Cloudflare 一键部署
 
-1. 克隆项目到本地：
-   ```bash
-   git clone https://github.com/wedsfew/navigetion.git
-   cd navigetion
-   ```
+🔥 **超简单部署方式**：查看 [cloudflare-setup.md](cloudflare-setup.md) 获取详细的图文部署教程
 
-2. 启动本地服务器：
-   ```bash
-   # 使用Python
-   python3 -m http.server 8000
-   
-   # 或使用Node.js
-   npx http-server
-   ```
-
-3. 打开浏览器访问：`http://localhost:8000`
-
-### 生产部署
-
-🔥 **[点击查看：超简单3步部署指南](CLOUDFLARE_SETUP.md)** - 无需代码，3分钟完成部署！
-
-完整的Cloudflare部署指南请查看 [DEPLOYMENT.md](DEPLOYMENT.md)
+**快速步骤**：
+1. **Worker**：创建Worker → 粘贴`worker.js`代码 → 添加KV绑定
+2. **前端**：Pages连接仓库 → 自动部署
+3. **配置**：更新`config.js`中的Worker URL
+4. **完成**：设置管理员账户开始使用
 
 ## 🎯 使用方法
 
@@ -87,13 +72,13 @@
 ```
 navigetion/
 ├── index.html          # 主页面
-├── styles.css          # 样式文件
+├── styles.css          # 样式文件  
 ├── script.js           # 前端功能脚本
+├── config.js           # API配置文件 (需要更新Worker URL)
 ├── worker.js           # Cloudflare Worker后端API
 ├── wrangler.toml       # Worker配置文件
-├── config.example.js   # API配置示例
-├── README.md           # 项目说明
-└── DEPLOYMENT.md       # 部署指南
+├── cloudflare-setup.md # 🔥 一键部署教程
+└── README.md           # 项目说明
 ```
 
 ## 📱 截图预览

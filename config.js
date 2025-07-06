@@ -1,46 +1,25 @@
-// API配置文件 - 自动检测环境
-// 本文件会根据当前域名自动选择正确的API地址
-
-const API_CONFIG = (() => {
-    const currentHost = window.location.hostname;
+// API配置文件
+const API_CONFIG = {
+    // 开发环境 - 本地Cloudflare Worker
+    development: {
+        baseUrl: 'http://localhost:8787'
+    },
     
-    // 如果是本地开发环境
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-        return {
-            baseUrl: 'http://localhost:8787',
-            environment: 'development'
-        };
+    // 生产环境 - Cloudflare Worker URL
+    // 🔧 部署Worker后，请将下面的URL替换为您的实际Worker地址
+    // 格式：https://your-worker-name.your-subdomain.workers.dev
+    production: {
+        baseUrl: 'https://navigation-worker.your-subdomain.workers.dev'
     }
-    
-    // 如果是GitHub Pages
-    if (currentHost.includes('github.io')) {
-        return {
-            baseUrl: 'https://navigation-worker.wedsfew.workers.dev',
-            environment: 'github-pages'
-        };
-    }
-    
-    // 如果是Cloudflare Pages
-    if (currentHost.includes('pages.dev') || currentHost.includes('cloudflare')) {
-        // 自动构建Worker URL - 基于当前域名
-        const subdomain = currentHost.split('.')[0];
-        return {
-            baseUrl: `https://navigation-worker.${subdomain}.workers.dev`,
-            environment: 'cloudflare-pages'
-        };
-    }
-    
-    // 自定义域名 - 默认使用通用Worker地址
-    return {
-        baseUrl: 'https://navigation-worker.wedsfew.workers.dev',
-        environment: 'custom-domain'
-    };
-})();
+};
 
-// 导出配置供script.js使用
-window.API_CONFIG = API_CONFIG;
+// 根据当前环境自动选择配置
+const getApiConfig = () => {
+    const isDevelopment = window.location.origin.includes('localhost') || 
+                         window.location.origin.includes('127.0.0.1');
+    
+    return isDevelopment ? API_CONFIG.development : API_CONFIG.production;
+};
 
-// 调试信息（仅在开发环境显示）
-if (API_CONFIG.environment === 'development') {
-    console.log('🔧 API配置:', API_CONFIG);
-} 
+// 导出配置
+window.API_CONFIG = getApiConfig(); 
