@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的项目导航</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-code"></i> 我的项目导航</h1>
+                <button class="add-btn" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> 添加项目
+                </button>
+            </div>
+        </header>
+
+        <!-- 搜索栏 -->
+        <div class="search-container">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="搜索项目...">
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-category="all">全部</button>
+                <button class="filter-btn" data-category="web">网站</button>
+                <button class="filter-btn" data-category="mobile">移动端</button>
+                <button class="filter-btn" data-category="desktop">桌面端</button>
+                <button class="filter-btn" data-category="other">其他</button>
+            </div>
+        </div>
+
+        <!-- 项目网格 -->
+        <div class="projects-grid" id="projectsGrid">
+            <!-- 项目卡片将通过JavaScript动态添加 -->
+        </div>
+
+        <!-- 空状态 -->
+        <div class="empty-state" id="emptyState">
+            <i class="fas fa-folder-open"></i>
+            <h3>还没有项目</h3>
+            <p>点击"添加项目"按钮来添加您的第一个项目</p>
+        </div>
+    </div>
+
+    <!-- 添加/编辑项目模态框 -->
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">添加项目</h2>
+                <button class="close-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="projectForm">
+                <div class="form-group">
+                    <label for="projectName">项目名称</label>
+                    <input type="text" id="projectName" required>
+                </div>
+                <div class="form-group">
+                    <label for="projectUrl">项目链接</label>
+                    <input type="url" id="projectUrl" required>
+                </div>
+                <div class="form-group">
+                    <label for="projectDescription">项目描述</label>
+                    <textarea id="projectDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="projectCategory">项目类别</label>
+                    <select id="projectCategory">
+                        <option value="web">网站</option>
+                        <option value="mobile">移动端</option>
+                        <option value="desktop">桌面端</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="projectTags">标签 (用逗号分隔)</label>
+                    <input type="text" id="projectTags" placeholder="例如: React, Node.js, MongoDB">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn-submit">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>确认删除</h2>
+                <button class="close-btn" onclick="closeDeleteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要删除这个项目吗？此操作无法撤销。</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" onclick="closeDeleteModal()">取消</button>
+                <button type="button" class="btn-delete" onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

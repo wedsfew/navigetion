@@ -1,0 +1,427 @@
+// 项目管理器
+class ProjectManager {
+    constructor() {
+        this.projects = this.loadProjects();
+        this.currentEditingId = null;
+        this.currentDeleteId = null;
+        this.currentFilter = 'all';
+        this.searchTerm = '';
+        
+        this.init();
+    }
+
+    init() {
+        this.renderProjects();
+        this.bindEvents();
+        this.updateEmptyState();
+    }
+
+    // 绑定事件
+    bindEvents() {
+        // 表单提交
+        document.getElementById('projectForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProject();
+        });
+
+        // 搜索功能
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            this.searchTerm = e.target.value.toLowerCase();
+            this.filterAndRenderProjects();
+        });
+
+        // 分类过滤
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // 更新按钮状态
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // 更新过滤器
+                this.currentFilter = e.target.dataset.category;
+                this.filterAndRenderProjects();
+            });
+        });
+
+        // 模态框点击外部关闭
+        document.getElementById('projectModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('projectModal')) {
+                this.closeModal();
+            }
+        });
+
+        document.getElementById('deleteModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('deleteModal')) {
+                this.closeDeleteModal();
+            }
+        });
+
+        // ESC键关闭模态框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeModal();
+                this.closeDeleteModal();
+            }
+        });
+    }
+
+    // 从本地存储加载项目
+    loadProjects() {
+        const saved = localStorage.getItem('projects');
+        return saved ? JSON.parse(saved) : [];
+    }
+
+    // 保存项目到本地存储
+    saveProjects() {
+        localStorage.setItem('projects', JSON.stringify(this.projects));
+    }
+
+    // 生成唯一ID
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    // 保存项目
+    saveProject() {
+        const form = document.getElementById('projectForm');
+        const formData = new FormData(form);
+        
+        const project = {
+            name: document.getElementById('projectName').value.trim(),
+            url: document.getElementById('projectUrl').value.trim(),
+            description: document.getElementById('projectDescription').value.trim(),
+            category: document.getElementById('projectCategory').value,
+            tags: document.getElementById('projectTags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+        };
+
+        // 验证必填字段
+        if (!project.name || !project.url) {
+            alert('请填写项目名称和链接');
+            return;
+        }
+
+        // 验证URL格式
+        try {
+            new URL(project.url);
+        } catch {
+            alert('请输入有效的URL');
+            return;
+        }
+
+        if (this.currentEditingId) {
+            // 编辑现有项目
+            const index = this.projects.findIndex(p => p.id === this.currentEditingId);
+            if (index !== -1) {
+                this.projects[index] = { ...project, id: this.currentEditingId };
+            }
+        } else {
+            // 添加新项目
+            project.id = this.generateId();
+            this.projects.unshift(project);
+        }
+
+        this.saveProjects();
+        this.renderProjects();
+        this.closeModal();
+        this.updateEmptyState();
+        
+        // 显示成功消息
+        this.showMessage(this.currentEditingId ? '项目更新成功！' : '项目添加成功！');
+    }
+
+    // 删除项目
+    deleteProject(id) {
+        this.projects = this.projects.filter(p => p.id !== id);
+        this.saveProjects();
+        this.renderProjects();
+        this.updateEmptyState();
+        this.showMessage('项目删除成功！');
+    }
+
+    // 渲染项目列表
+    renderProjects() {
+        const container = document.getElementById('projectsGrid');
+        container.innerHTML = '';
+
+        const filteredProjects = this.getFilteredProjects();
+
+        filteredProjects.forEach(project => {
+            const projectCard = this.createProjectCard(project);
+            container.appendChild(projectCard);
+        });
+    }
+
+    // 过滤和渲染项目
+    filterAndRenderProjects() {
+        this.renderProjects();
+        this.updateEmptyState();
+    }
+
+    // 获取过滤后的项目
+    getFilteredProjects() {
+        let filtered = this.projects;
+
+        // 按分类过滤
+        if (this.currentFilter !== 'all') {
+            filtered = filtered.filter(p => p.category === this.currentFilter);
+        }
+
+        // 按搜索词过滤
+        if (this.searchTerm) {
+            filtered = filtered.filter(p => 
+                p.name.toLowerCase().includes(this.searchTerm) ||
+                p.description.toLowerCase().includes(this.searchTerm) ||
+                p.tags.some(tag => tag.toLowerCase().includes(this.searchTerm))
+            );
+        }
+
+        return filtered;
+    }
+
+    // 创建项目卡片
+    createProjectCard(project) {
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        card.innerHTML = `
+            <div class="project-header">
+                <div>
+                    <h3 class="project-title">${this.escapeHtml(project.name)}</h3>
+                    <span class="project-category">${this.getCategoryName(project.category)}</span>
+                </div>
+                <div class="project-actions">
+                    <button class="action-btn edit-btn" onclick="projectManager.editProject('${project.id}')" title="编辑">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" onclick="projectManager.confirmDelete('${project.id}')" title="删除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <p class="project-description">${this.escapeHtml(project.description)}</p>
+            <div class="project-tags">
+                ${project.tags.map(tag => `<span class="tag">${this.escapeHtml(tag)}</span>`).join('')}
+            </div>
+            <a href="${project.url}" class="project-link" target="_blank" rel="noopener noreferrer">
+                <i class="fas fa-external-link-alt"></i>
+                访问项目
+            </a>
+        `;
+        return card;
+    }
+
+    // 获取分类名称
+    getCategoryName(category) {
+        const names = {
+            'web': '网站',
+            'mobile': '移动端',
+            'desktop': '桌面端',
+            'other': '其他'
+        };
+        return names[category] || category;
+    }
+
+    // HTML转义
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // 更新空状态显示
+    updateEmptyState() {
+        const emptyState = document.getElementById('emptyState');
+        const filteredProjects = this.getFilteredProjects();
+        
+        if (filteredProjects.length === 0) {
+            emptyState.classList.remove('hidden');
+            if (this.projects.length === 0) {
+                emptyState.innerHTML = `
+                    <i class="fas fa-folder-open"></i>
+                    <h3>还没有项目</h3>
+                    <p>点击"添加项目"按钮来添加您的第一个项目</p>
+                `;
+            } else {
+                emptyState.innerHTML = `
+                    <i class="fas fa-search"></i>
+                    <h3>没有找到匹配的项目</h3>
+                    <p>尝试调整搜索条件或筛选器</p>
+                `;
+            }
+        } else {
+            emptyState.classList.add('hidden');
+        }
+    }
+
+    // 显示消息
+    showMessage(message) {
+        // 创建消息提示
+        const messageEl = document.createElement('div');
+        messageEl.className = 'message';
+        messageEl.textContent = message;
+        messageEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #48bb78;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(72, 187, 120, 0.4);
+            z-index: 2000;
+            animation: slideInRight 0.3s ease;
+        `;
+
+        document.body.appendChild(messageEl);
+
+        // 3秒后自动移除
+        setTimeout(() => {
+            messageEl.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                if (messageEl.parentNode) {
+                    messageEl.parentNode.removeChild(messageEl);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    // 编辑项目
+    editProject(id) {
+        const project = this.projects.find(p => p.id === id);
+        if (!project) return;
+
+        this.currentEditingId = id;
+
+        // 填充表单
+        document.getElementById('projectName').value = project.name;
+        document.getElementById('projectUrl').value = project.url;
+        document.getElementById('projectDescription').value = project.description;
+        document.getElementById('projectCategory').value = project.category;
+        document.getElementById('projectTags').value = project.tags.join(', ');
+
+        // 更新模态框标题
+        document.getElementById('modalTitle').textContent = '编辑项目';
+
+        this.openModal();
+    }
+
+    // 确认删除
+    confirmDelete(id) {
+        this.currentDeleteId = id;
+        document.getElementById('deleteModal').classList.add('active');
+    }
+
+    // 执行删除
+    confirmDeleteAction() {
+        if (this.currentDeleteId) {
+            this.deleteProject(this.currentDeleteId);
+            this.currentDeleteId = null;
+            this.closeDeleteModal();
+        }
+    }
+
+    // 打开添加模态框
+    openModal() {
+        document.getElementById('projectModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // 关闭模态框
+    closeModal() {
+        document.getElementById('projectModal').classList.remove('active');
+        document.body.style.overflow = '';
+        
+        // 重置表单
+        document.getElementById('projectForm').reset();
+        this.currentEditingId = null;
+        document.getElementById('modalTitle').textContent = '添加项目';
+    }
+
+    // 关闭删除确认模态框
+    closeDeleteModal() {
+        document.getElementById('deleteModal').classList.remove('active');
+        document.body.style.overflow = '';
+        this.currentDeleteId = null;
+    }
+}
+
+// 全局函数（用于HTML中的onclick事件）
+function openAddModal() {
+    projectManager.openModal();
+}
+
+function closeModal() {
+    projectManager.closeModal();
+}
+
+function closeDeleteModal() {
+    projectManager.closeDeleteModal();
+}
+
+function confirmDelete() {
+    projectManager.confirmDeleteAction();
+}
+
+// 添加动画样式
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+// 初始化项目管理器
+const projectManager = new ProjectManager();
+
+// 添加一些示例项目（仅在第一次访问时）
+if (projectManager.projects.length === 0) {
+    const sampleProjects = [
+        {
+            id: 'sample1',
+            name: '个人博客',
+            url: 'https://example.com/blog',
+            description: '使用React和Node.js构建的个人博客系统，支持Markdown写作和评论功能。',
+            category: 'web',
+            tags: ['React', 'Node.js', 'MongoDB', 'Express']
+        },
+        {
+            id: 'sample2',
+            name: '任务管理应用',
+            url: 'https://example.com/todo',
+            description: '简洁高效的任务管理工具，支持项目分组、优先级设置和团队协作。',
+            category: 'web',
+            tags: ['Vue.js', 'Firebase', 'PWA']
+        },
+        {
+            id: 'sample3',
+            name: '天气预报App',
+            url: 'https://example.com/weather',
+            description: '基于React Native开发的天气预报应用，提供详细的天气信息和美观的UI。',
+            category: 'mobile',
+            tags: ['React Native', 'API', 'iOS', 'Android']
+        }
+    ];
+
+    projectManager.projects = sampleProjects;
+    projectManager.saveProjects();
+    projectManager.renderProjects();
+    projectManager.updateEmptyState();
+} 
