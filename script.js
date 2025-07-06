@@ -10,10 +10,8 @@ class ProjectManager {
         this.adminToken = null;
         this.adminUsername = null;
         
-        // API配置 - 在部署时需要更新为实际的Worker URL
-        this.apiBaseUrl = window.location.origin.includes('localhost') 
-            ? 'http://localhost:8787' // 本地开发时的Worker URL
-            : 'https://navigation-worker.your-subdomain.workers.dev'; // 生产环境Worker URL
+        // API配置 - 自动从config.js获取
+        this.apiBaseUrl = window.API_CONFIG?.baseUrl || 'https://navigation-worker.wedsfew.workers.dev';
         
         this.init();
     }

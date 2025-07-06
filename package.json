@@ -1,0 +1,33 @@
+{
+  "name": "navigation-website",
+  "version": "2.0.0",
+  "description": "一个现代化的项目导航网站，支持Cloudflare KV存储",
+  "main": "worker.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "deploy-pages": "wrangler pages deploy . --project-name=navigation-website",
+    "kv:create": "wrangler kv:namespace create NAVIGATION_KV && wrangler kv:namespace create NAVIGATION_KV --preview",
+    "tail": "wrangler tail",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "navigation",
+    "cloudflare",
+    "workers",
+    "kv",
+    "website",
+    "project-management"
+  ],
+  "author": "wedsfew",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wedsfew/navigetion.git"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 

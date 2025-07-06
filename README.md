@@ -37,6 +37,8 @@
 
 ### 生产部署
 
+🔥 **[点击查看：超简单3步部署指南](CLOUDFLARE_SETUP.md)** - 无需代码，3分钟完成部署！
+
 完整的Cloudflare部署指南请查看 [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## 🎯 使用方法
